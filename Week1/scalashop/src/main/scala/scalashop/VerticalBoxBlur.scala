@@ -43,19 +43,39 @@ object VerticalBoxBlur {
    *  bottom.
    */
   def blur(src: Img, dst: Img, from: Int, end: Int, radius: Int): Unit = {
-    // TODO implement this method using the `boxBlurKernel` method
-    ???
+    for {
+      x <- from until end // for each column
+      y <- 0 until src.height // going from top to bottom
+      if (x >= 0 && x < src.width) // No need to check y as it is specifically defined
+    } yield {
+      val rgba = boxBlurKernel(src, x, y, radius)
+      dst.update(x, y, rgba)
+    }
   }
 
-  /** Blurs the columns of the source image in parallel using `numTasks` tasks.
+  /**
+   * Blurs the columns of the source image in parallel using `numTasks` tasks.
    *
    *  Parallelization is done by stripping the source image `src` into
    *  `numTasks` separate strips, where each strip is composed of some number of
    *  columns.
    */
   def parBlur(src: Img, dst: Img, numTasks: Int, radius: Int): Unit = {
-    // TODO implement using the `task` construct and the `blur` method
-    ???
+    // Get the numbers we need for parallelization
+    val allColumns = 0 until src.width // indexes of all the columns in the image
+    val columnsPerTask = math.max(src.width / numTasks, 1) // make sure we have atleast 1 column
+    val startColumns = allColumns by columnsPerTask // cols where we split for starting separate tasks
+
+    // parallelization
+    val allTasks = startColumns.map(elem => {
+      task {
+        // do elem to (elem + columnsPerTask) columns in one task
+        blur(src, dst, elem, elem + columnsPerTask, radius)
+      }
+    })
+
+    // finally join
+    allTasks.map(task => task.join()) // each element of allTasks is a task
   }
 
 }
